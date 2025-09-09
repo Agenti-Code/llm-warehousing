@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-warehouse"
+version = "0.1.0"
+description = "Auto-capture OpenAI and Anthropic LLM calls for warehousing"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "wrapt>=1.16.0",
+  "openai>=1.0.0",
+  "anthropic>=0.20.0",
+  "httpx>=0.27",
+  "requests>=2.31.0"
+]
+
+[tool.setuptools]
+packages = ["llm_warehouse"]
+
+
