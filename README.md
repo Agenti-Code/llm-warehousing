@@ -46,7 +46,7 @@ response = client.chat.completions.create(
 For automatic patching on import, set environment variables:
 
 ```bash
-export OBSERVIFY_API_TOKEN="your-warehouse-api-key"
+export LLM_WAREHOUSE_API_KEY="your-warehouse-api-key"
 export LLM_WAREHOUSE_URL="https://your-warehouse.com"
 ```
 
