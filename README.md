@@ -9,7 +9,13 @@ A lightweight Python library that automatically logs all your OpenAI and Anthrop
 ### Installation
 
 ```bash
-pip install git+https://github.com/yourusername/llm-warehouse.git
+pip install llm-warehouse
+```
+
+Or for the latest development version:
+
+```bash
+pip install git+https://github.com/sinanozdemir/llm-warehouse.git
 ```
 
 ### Basic Usage
@@ -91,3 +97,65 @@ llm_warehouse.unpatch()
 if llm_warehouse.is_patched():
     print("LLM calls are being logged")
 ```
+
+## 🏗️ Backend Options
+
+### Flask Warehouse Backend
+Use with the included Flask app for full control:
+
+```python
+llm_warehouse.patch(
+    warehouse_url="https://your-warehouse.com",
+    api_key="your-warehouse-api-key"
+)
+```
+
+### Supabase Backend
+Direct integration with Supabase:
+
+```python
+llm_warehouse.patch(
+    supabase_url="https://your-project.supabase.co",
+    supabase_key="your-supabase-anon-key"
+)
+```
+
+### Local File Backend
+For development and testing:
+
+```python
+llm_warehouse.patch(log_file="llm_calls.jsonl")
+```
+
+## 📦 Features
+
+- ✅ **Zero-configuration**: Works out of the box with environment variables
+- ✅ **Multiple backends**: Flask warehouse, Supabase, local files
+- ✅ **Async support**: Full async/await compatibility
+- ✅ **Streaming support**: Captures streaming responses
+- ✅ **Error handling**: Logs API errors and exceptions
+- ✅ **Minimal overhead**: Designed for production use
+- ✅ **Thread-safe**: Works in multi-threaded applications
+
+## 🧪 Development
+
+```bash
+git clone https://github.com/sinanozdemir/llm-warehouse.git
+cd llm-warehouse/llm-warehouse-package
+pip install -e ".[dev]"
+```
+
+Run tests:
+```bash
+pytest
+```
+
+Format code:
+```bash
+black llm_warehouse/
+isort llm_warehouse/
+```
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) file for details.

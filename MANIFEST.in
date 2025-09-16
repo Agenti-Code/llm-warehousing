@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include pyproject.toml
+recursive-include llm_warehouse *.py
+recursive-include llm_warehouse py.typed
+exclude sitecustomize.py
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
