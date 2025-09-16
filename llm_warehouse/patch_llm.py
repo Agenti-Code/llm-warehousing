@@ -8,23 +8,84 @@ import wrapt
 
 from .transport import send
 
-
 def _serialize(obj: Any) -> Any:
-    """Best-effort serialization for OpenAI SDK objects and common Python types."""
+    """Best-effort serialization for OpenAI SDK, LangChain, and common Python types."""
+    import uuid
+    
+    def _make_serializable(value: Any) -> Any:
+        """Recursively convert objects to JSON-serializable types."""
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        elif isinstance(value, dict):
+            return {k: _make_serializable(v) for k, v in value.items()}
+        elif isinstance(value, (list, tuple)):
+            return [_make_serializable(item) for item in value]
+        else:
+            return value
+    
     try:
+        # Handle LangChain Message objects
+        if hasattr(obj, "content") and hasattr(obj, "type"):
+            # This is likely a LangChain message object
+            result = {"content": obj.content, "type": obj.type}
+            if hasattr(obj, "additional_kwargs"):
+                result["additional_kwargs"] = obj.additional_kwargs
+            if hasattr(obj, "response_metadata"):
+                result["response_metadata"] = obj.response_metadata
+            if hasattr(obj, "usage_metadata"):
+                result["usage_metadata"] = obj.usage_metadata
+            if hasattr(obj, "id"):
+                result["id"] = obj.id
+            result = _make_serializable(result)
+            if is_debug():
+                print(f"[llm-warehouse] result in _serialize 1: {result}")
+            return result
+        
+        # Handle LangChain Generation objects
+        if hasattr(obj, "text") and hasattr(obj, "generation_info"):
+            result = {
+                "text": obj.text,
+                "generation_info": obj.generation_info
+            }
+            result = _make_serializable(result)
+            if is_debug():
+                print(f"[llm-warehouse] result in _serialize 2: {result}")
+            return result
+        
+        # Handle standard serialization methods
         if hasattr(obj, "to_dict"):
-            return obj.to_dict()
+            result = obj.to_dict()
+            result = _make_serializable(result)
+            if is_debug():
+                print(f"[llm-warehouse] result in _serialize 3: {result}")
+            return result
         if hasattr(obj, "model_dump"):
-            return obj.model_dump()
+            result = obj.model_dump()
+            result = _make_serializable(result)
+            if is_debug():
+                print(f"[llm-warehouse] result in _serialize 4: {result}")
+            return result
         if hasattr(obj, "dict"):
-            return obj.dict()
+            result = obj.dict()
+            result = _make_serializable(result)
+            if is_debug():
+                print(f"[llm-warehouse] result in _serialize 5: {result}")
+            return result
     except Exception:
         pass
+    
     try:
-        json.dumps(obj)
-        return obj
+        # Make a copy and ensure it's serializable
+        serializable_obj = _make_serializable(obj)
+        json.dumps(serializable_obj)
+        if is_debug():
+            print(f"[llm-warehouse] result in _serialize 6: {serializable_obj}")
+        return serializable_obj
     except Exception:
-        return str(obj)
+        result = str(obj)
+        if is_debug():
+            print(f"[llm-warehouse] result in _serialize 7: {result}")
+        return result
 
 
 def is_debug() -> bool:
@@ -118,17 +179,39 @@ def _wrap_create(owner: Any, attr_path: str) -> None:
             }
             try:
                 result = await original(*args, **kwargs)
+                
+                # Handle streaming responses early
                 if kwargs.get("stream") is True:
                     record["streaming"] = True
                     record["latency_s"] = time.time() - t0
                     send(record)
                     return result
+                
+                # Calculate latency after completion
                 record["latency_s"] = time.time() - t0
+                
+                # Enhanced response serialization for async completions
+                if is_debug():
+                    print(f"[llm-warehouse] async create result type: {type(result)}")
+                    print(f"[llm-warehouse] async create result: {result}")
+                
+                # Handle async streaming responses
+                if hasattr(result, '__aiter__'):
+                    record["streaming"] = True
+                    record["response"] = "async_stream_response"
+                    send(record)
+                    return result
+                
+                # Serialize the completed response
                 record["response"] = _serialize(result)
+                
+                # Extract request ID if available
                 try:
-                    record["request_id"] = getattr(result, "_request_id", None)
+                    record["request_id"] = getattr(result, "_request_id", None) or getattr(result, "id", None)
                 except Exception:
                     pass
+                
+                # Send the log after completion
                 send(record)
                 return result
             except Exception as e:  # noqa: BLE001
@@ -163,8 +246,33 @@ def _wrap_method(owner: Any, method_name: str, attr_path: str) -> None:
             }
             try:
                 result = await original(*args, **kwargs)
+                
+                # Calculate latency after completion
                 record["latency_s"] = time.time() - t0
+                
+                # Enhanced response serialization for async completions
+                if is_debug():
+                    print(f"[llm-warehouse] async result type: {type(result)}")
+                    print(f"[llm-warehouse] async result: {result}")
+                
+                # Handle streaming responses
+                if hasattr(result, '__aiter__'):
+                    record["streaming"] = True
+                    record["response"] = "async_stream_response"
+                    send(record)
+                    return result
+                
+                # Serialize the completed response
+                print(f"[llm-warehouse] result in _wrap_method: {result}")
                 record["response"] = _serialize(result)
+                
+                # Extract request ID if available
+                try:
+                    record["request_id"] = getattr(result, "_request_id", None) or getattr(result, "id", None)
+                except Exception:
+                    pass
+                
+                # Send the log after completion
                 send(record)
                 return result
             except Exception as e:  # noqa: BLE001
@@ -203,6 +311,7 @@ def install_patch() -> None:
     This targets:
     - OpenAI: Responses API and Chat Completions, sync and async
     - Anthropic: Messages API, sync and async
+    - LangChain: ChatOpenAI and other LLM wrappers, sync and async
     Failing imports are ignored to be resilient across SDK versions.
     """
     global _PATCH_APPLIED
@@ -237,14 +346,14 @@ def install_patch() -> None:
     except Exception:
         pass
 
-    # Chat Completions API (async)
-    try:
-        from openai.resources.chat.completions import (
-            AsyncCompletions as AsyncChatCompletions,
-        )
-        _wrap_create(AsyncChatCompletions, "openai.async.chat.completions.create")
-    except Exception:
-        pass
+    # # Chat Completions API (async)
+    # try:
+    #     from openai.resources.chat.completions import (
+    #         AsyncCompletions as AsyncChatCompletions,
+    #     )
+    #     _wrap_create(AsyncChatCompletions, "openai.async.chat.completions.create")
+    # except Exception:
+    #     pass
 
     # === Anthropic SDK Patches ===
     
@@ -260,6 +369,50 @@ def install_patch() -> None:
         from anthropic.resources.messages import AsyncMessages
         _wrap_create(AsyncMessages, "anthropic.async.messages.create")
     except Exception:
+        pass
+
+    # === LangChain SDK Patches ===
+    
+    # ChatOpenAI async methods
+    try:
+        from langchain_openai import ChatOpenAI
+        _wrap_method(ChatOpenAI, "ainvoke", "langchain.openai.chat.ainvoke")
+        # _wrap_method(ChatOpenAI, "agenerate", "langchain.openai.chat.agenerate")
+        # _wrap_method(ChatOpenAI, "astream", "langchain.openai.chat.astream")
+        # Also wrap sync methods for completeness
+        _wrap_method(ChatOpenAI, "invoke", "langchain.openai.chat.invoke")
+        # _wrap_method(ChatOpenAI, "generate", "langchain.openai.chat.generate")
+        # _wrap_method(ChatOpenAI, "stream", "langchain.openai.chat.stream")
+    except Exception as e:
+        if is_debug():
+            print(f"[llm-warehouse] Failed to patch langchain_openai.ChatOpenAI: {e}")
+        pass
+
+    # ChatAnthropic async methods (if available)
+    try:
+        from langchain_anthropic import ChatAnthropic
+        _wrap_method(ChatAnthropic, "ainvoke", "langchain.anthropic.chat.ainvoke")
+        # _wrap_method(ChatAnthropic, "agenerate", "langchain.anthropic.chat.agenerate")
+        # _wrap_method(ChatAnthropic, "astream", "langchain.anthropic.chat.astream")
+        # Also wrap sync methods for completeness
+        _wrap_method(ChatAnthropic, "invoke", "langchain.anthropic.chat.invoke")
+        # _wrap_method(ChatAnthropic, "generate", "langchain.anthropic.chat.generate")
+        # _wrap_method(ChatAnthropic, "stream", "langchain.anthropic.chat.stream")
+    except Exception as e:
+        if is_debug():
+            print(f"[llm-warehouse] Failed to patch langchain_anthropic.ChatAnthropic: {e}")
+        pass
+
+    # Generic LLM classes (fallback for other providers)
+    try:
+        from langchain_community.llms import OpenAI as LangChainOpenAI
+        _wrap_method(LangChainOpenAI, "ainvoke", "langchain.community.openai.ainvoke")
+        # _wrap_method(LangChainOpenAI, "agenerate", "langchain.community.openai.agenerate")
+        _wrap_method(LangChainOpenAI, "invoke", "langchain.community.openai.invoke")
+        # _wrap_method(LangChainOpenAI, "generate", "langchain.community.openai.generate")
+    except Exception as e:
+        if is_debug():
+            print(f"[llm-warehouse] Failed to patch langchain_community.llms.OpenAI: {e}")
         pass
 
     _PATCH_APPLIED = True
