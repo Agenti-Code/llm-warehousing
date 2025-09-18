@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-warehouse"
-version = "0.1.0"
+version = "0.1.1"
 description = "Auto-capture OpenAI and Anthropic LLM calls for warehousing and observability"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -39,10 +39,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sinanozdemir/llm-warehouse"
-Documentation = "https://github.com/sinanozdemir/llm-warehouse#readme"
-Repository = "https://github.com/sinanozdemir/llm-warehouse.git"
-Issues = "https://github.com/sinanozdemir/llm-warehouse/issues"
+Homepage = "https://github.com/Agenti-Code/llm-warehousing"
+Documentation = "https://github.com/Agenti-Code/llm-warehousing#readme"
+Repository = "https://github.com/Agenti-Code/llm-warehousing.git"
+Issues = "https://github.com/Agenti-Code/llm-warehousing/issues"
 
 [project.optional-dependencies]
 dev = [

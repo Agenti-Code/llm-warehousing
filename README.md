@@ -20,35 +20,6 @@ pip install git+https://github.com/sinanozdemir/llm-warehouse.git
 
 ### Basic Usage
 
-```python
-import llm_warehouse
-
-# Option 1: Use with your own warehouse
-llm_warehouse.patch(
-    warehouse_url="https://your-warehouse.com",
-    api_key="your-warehouse-api-key"
-)
-
-# Option 2: Use with Supabase
-llm_warehouse.patch(
-    supabase_url="https://your-project.supabase.co",
-    supabase_key="your-supabase-anon-key"
-)
-
-# Option 3: Save to local file
-llm_warehouse.patch(log_file="llm_calls.jsonl")
-
-# Now use OpenAI/Anthropic normally - all calls are automatically logged!
-import openai
-client = openai.Client()
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-```
-
-## 🎯 Automatic Setup (Recommended)
-
 For automatic patching on import, set environment variables:
 
 ```bash
@@ -64,6 +35,20 @@ import llm_warehouse  # BEFORE openai or anthropic
 import openai  # Automatically patched!
 # or
 import anthropic  # Automatically patched!
+```
+
+Sample usage:
+
+```python
+import llm_warehouse
+
+# Now use OpenAI/Anthropic normally - all calls are automatically logged!
+import openai
+client = openai.Client()
+response = client.chat.completions.create(
+    model="gpt-4.1-mini",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
 ```
 
 ## 📊 What Gets Logged
@@ -82,7 +67,7 @@ import anthropic  # Automatically patched!
 | `LLM_WAREHOUSE_API_KEY` | Your warehouse API token (enables auto-patching) |
 | `LLM_WAREHOUSE_URL` | Your warehouse URL |
 
-## 🔄 Programmatic Control
+## 🔄 Programmatic Control (for advanced users)
 
 ```python
 import llm_warehouse
@@ -100,8 +85,8 @@ if llm_warehouse.is_patched():
 
 ## 🏗️ Backend Options
 
-### Flask Warehouse Backend
-Use with the included Flask app for full control:
+### API Warehouse Backend
+Use with the included API (recommended):
 
 ```python
 llm_warehouse.patch(
