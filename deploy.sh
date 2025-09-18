@@ -212,14 +212,16 @@ if [[ $confirm =~ ^[Yy]$ ]]; then
         echo "   pip install llm-warehouse==$new_version"
         echo ""
         
-        # Create git tag for the version
+        # Create and push git tag for the version
         if [ "$new_version" != "$current_version" ]; then
-            read -p "Create git tag v$new_version? (y/N): " create_tag
-            if [[ $create_tag =~ ^[Yy]$ ]]; then
-                git tag "v$new_version"
-                echo "✅ Git tag v$new_version created"
-                echo "💡 Push with: git push origin v$new_version"
-            fi
+            echo "🏷️  Creating git tag v$new_version..."
+            git tag "v$new_version"
+            echo "✅ Git tag v$new_version created"
+            
+            echo "📤 Pushing git changes and tags..."
+            git push origin HEAD
+            git push origin "v$new_version"
+            echo "✅ Git changes and tags pushed to remote"
         fi
     else
         echo "❌ Publishing failed!"
